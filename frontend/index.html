@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>URL Shortener</title>
+  <style>
+    body {
+      font-family: "Inter", system-ui, sans-serif;
+      background: #f9fafb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: white;
+      padding: 2rem 2.5rem;
+      border-radius: 1rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      width: 100%;
+      max-width: 480px;
+      text-align: center;
+    }
+    h2 {
+      margin-bottom: 1rem;
+      color: #222;
+      font-weight: 600;
+    }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+    input {
+      padding: 0.7rem 1rem;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      font-size: 1rem;
+      width: 100%;
+    }
+    button {
+      padding: 0.7rem 1rem;
+      border: none;
+      border-radius: 8px;
+      background-color: #2563eb;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    button:hover:enabled {
+      background-color: #1e40af;
+    }
+    .output {
+      margin-top: 1.5rem;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      background: #f3f4f6;
+      padding: 1rem;
+      border-radius: 8px;
+      word-break: break-all;
+    }
+    .short-link {
+      color: #2563eb;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 1rem;
+    }
+    .copy-btn {
+      background: #10b981;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .copy-btn:hover {
+      background: #059669;
+    }
+    .msg {
+      font-size: 0.9rem;
+      color: #16a34a;
+      display: none;
+    }
+    .error {
+      color: #dc2626;
+      font-size: 0.9rem;
+      margin-top: 1rem;
+      display: none;
+    }
+    .input-group label {
+      font-size: 0.9rem;
+      text-align: left;
+      display: block;
+      margin-bottom: 0.3rem;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Shorten a URL</h2>
+    <form id="frm">
+      <div class="input-group">
+        <label for="url">Enter URL</label>
+        <input id="url" type="url" placeholder="https://example.com" required />
+      </div>
+      <div class="input-group">
+        <label for="custom">Custom Name (optional)</label>
+        <input id="custom" type="text" placeholder="e.g. my-link" />
+      </div>
+      <button id="submitBtn" type="submit">Shorten</button>
+    </form>
+
+    <div class="error" id="errorMsg"></div>
+
+    <div class="output" id="output">
+      <a id="shortLink" class="short-link" target="_blank"></a>
+      <button class="copy-btn" id="copyBtn">Copy</button>
+      <div class="msg" id="msg">Copied!</div>
+    </div>
+  </div>
+
+  <script>
+    const frm = document.getElementById('frm');
+    const submitBtn = document.getElementById('submitBtn');
+    const outputDiv = document.getElementById('output');
+    const linkEl = document.getElementById('shortLink');
+    const copyBtn = document.getElementById('copyBtn');
+    const msg = document.getElementById('msg');
+    const errorMsg = document.getElementById('errorMsg');
+
+    frm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      outputDiv.style.display = 'none';
+      errorMsg.style.display = 'none';
+      msg.style.display = 'none';
+
+      const url = document.getElementById('url').value.trim();
+      const custom = document.getElementById('custom').value.trim();
+
+      if (!url) {
+        errorMsg.textContent = 'Please enter a valid URL.';
+        errorMsg.style.display = 'block';
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Shortening...';
+
+      try {
+        const res = await fetch('/shorten', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, custom })
+        });
+
+        const data = await res.json();
+        console.log('Response:', data);
+
+        if (!res.ok) {
+          // Handles backend errors (like custom name already taken)
+          const detail = data.detail || 'Something went wrong.';
+          errorMsg.textContent = detail;
+          errorMsg.style.display = 'block';
+          return;
+        }
+
+        if (!data.short) {
+          throw new Error('Invalid backend response.');
+        }
+
+        const domain = window.location.origin; // auto-detect domain (works in prod)
+        const fullShortUrl = `${domain}/${data.short}`;
+
+        linkEl.textContent = fullShortUrl;
+        linkEl.href = fullShortUrl;
+
+        outputDiv.style.display = 'flex';
+
+        copyBtn.onclick = async () => {
+          await navigator.clipboard.writeText(fullShortUrl);
+          msg.style.display = 'block';
+          setTimeout(() => (msg.style.display = 'none'), 2000);
+        };
+
+      } catch (err) {
+        console.error(err);
+        errorMsg.textContent = 'Server error. Please try again later.';
+        errorMsg.style.display = 'block';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Shorten';
+      }
+    });
+  </script>
+</body>
+</html>
